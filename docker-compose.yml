@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  nats-server:
+    image: nats:latest
+    ports:
+      - "${NATS_CLIENT_PORT:-4222}:4222"
+      - "${NATS_MONITOR_PORT:-8222}:8222"
+    command: ["-js"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - nats-data:/data
+
+  mock-service:
+    build: ./mock-service
+    ports:
+      - "8080:8080"
+
+  kafka-state-publisher:
+    build: ./kafka-state-publisher
+    depends_on:
+      - nats-server
+      - mock-service
+
+  state-analyzer:
+    build: ./state-analyzer
+    depends_on:
+      - nats-server
+
+  result-sender:
+    build: ./result-sender
+    depends_on:
+      - nats-server
+      - mock-service
+
+volumes:
+  nats-data:
